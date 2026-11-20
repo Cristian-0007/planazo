@@ -1,0 +1,37 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - run: flutter pub get
+
+      - run: flutter build apk --release
+
+      - name: Preparar APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk planazo.apk
+
+      - name: Publicar release con el APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: Planazo APK (última versión)
+          body: |
+            APK generado automáticamente desde el commit ${{ github.sha }} en `main`.
+          files: planazo.apk
+          make_latest: true
