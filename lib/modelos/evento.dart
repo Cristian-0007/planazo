@@ -24,6 +24,7 @@ class Lugar {
     required this.nombre,
     this.direccion,
     this.localidad,
+    this.ciudadId,
     this.latitud,
     this.longitud,
   });
@@ -32,6 +33,7 @@ class Lugar {
   final String nombre;
   final String? direccion;
   final String? localidad;
+  final String? ciudadId;
   final double? latitud;
   final double? longitud;
 
@@ -41,6 +43,7 @@ class Lugar {
       nombre: j['nombre'] as String,
       direccion: j['direccion'] as String?,
       localidad: j['localidad'] as String?,
+      ciudadId: j['ciudad_id'] as String?,
       latitud: (j['latitud'] as num?)?.toDouble(),
       longitud: (j['longitud'] as num?)?.toDouble(),
     );

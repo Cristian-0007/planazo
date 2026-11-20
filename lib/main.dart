@@ -9,7 +9,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
     url: Config.supabaseUrl,
-    anonKey: Config.supabaseClave,
+    publishableKey: Config.supabaseClave,
   );
   runApp(const PlanazoApp());
 }

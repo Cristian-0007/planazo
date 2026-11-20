@@ -5,6 +5,8 @@ import '../pantallas/explorar_pantalla.dart';
 import '../pantallas/favoritos_pantalla.dart';
 import '../pantallas/perfil_pantalla.dart';
 import '../pantallas/proximos_pantalla.dart';
+import '../servicios/avisos_estado.dart';
+import '../servicios/favoritos_estado.dart';
 
 /// Contenedor principal con la barra de 4 destinos del kit.
 class Inicio extends StatefulWidget {
@@ -16,6 +18,18 @@ class Inicio extends StatefulWidget {
 
 class _InicioState extends State<Inicio> {
   int _indice = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Los favoritos son de la sesión actual: se limpian y se leen de nuevo.
+    FavoritosEstado.instancia.reiniciar();
+    FavoritosEstado.instancia.cargar();
+    // Avisos: se olvidan los de la sesión anterior y se crean los de "inicio
+    // próximo" que falten.
+    AvisosEstado.instancia.reiniciar();
+    AvisosEstado.instancia.sincronizar();
+  }
 
   static const _pantallas = <Widget>[
     ExplorarPantalla(),

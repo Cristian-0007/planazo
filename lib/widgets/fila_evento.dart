@@ -4,6 +4,7 @@ import '../core/categorias_visual.dart';
 import '../core/formato.dart';
 import '../core/tema.dart';
 import '../modelos/evento.dart';
+import 'boton_favorito.dart';
 import 'estado_chip.dart';
 import 'sello_fecha.dart';
 
@@ -79,6 +80,7 @@ class FilaEvento extends StatelessWidget {
                   ],
                 ),
               ),
+              BotonFavorito(eventoId: evento.id),
             ],
           ),
         ),

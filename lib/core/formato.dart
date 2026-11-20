@@ -36,3 +36,30 @@ String textoPrecio(int? precio) {
   if (precio == 0) return 'Gratis';
   return '\$${conMiles(precio)}';
 }
+
+/// Días de calendario entre dos fechas (sin contar las horas).
+int diasEntre(DateTime desde, DateTime hasta) {
+  final a = DateTime.utc(desde.year, desde.month, desde.day);
+  final b = DateTime.utc(hasta.year, hasta.month, hasta.day);
+  return b.difference(a).inDays;
+}
+
+/// Encabezado de día para la agenda: "Hoy", "Mañana" o "Sáb 7 nov".
+String etiquetaDia(DateTime f, DateTime ahora) {
+  return switch (diasEntre(ahora, f)) {
+    0 => 'Hoy',
+    1 => 'Mañana',
+    _ => '${diaCorto(f)} ${f.day} ${mesCorto(f)}',
+  };
+}
+
+/// Tiempo transcurrido en lenguaje corriente: "Ahora", "Hace 5 min",
+/// "Hace 3 h", "Ayer" o "7 nov".
+String haceCuanto(DateTime f, DateTime ahora) {
+  final d = ahora.difference(f);
+  if (d.isNegative || d.inMinutes < 1) return 'Ahora';
+  if (d.inMinutes < 60) return 'Hace ${d.inMinutes} min';
+  if (d.inHours < 24 && diasEntre(f, ahora) == 0) return 'Hace ${d.inHours} h';
+  if (diasEntre(f, ahora) == 1) return 'Ayer';
+  return '${f.day} ${mesCorto(f)}';
+}

@@ -1,0 +1,161 @@
+PLANAZO - LO QUE FALTA POR IMPLEMENTAR
+Comparación del documento técnico (11 de septiembre de 2026) contra el repositorio
+https://github.com/Cristian-0007/planazo
+Fecha de revisión: 19 de noviembre de 2026 (actualizado tras el paso 4)
+
+====================================================================
+RESUMEN
+====================================================================
+El repositorio es un prototipo. Ya funcionan el registro y el inicio de sesión con
+correo y contraseña, la sesión persistente, la lista de eventos desde Supabase con
+filtro por categoría, los estados del evento y la seguridad RLS. Casi todo lo demás
+del documento está pendiente.
+
+Ya implementado (para referencia; ver abajo las casillas marcadas [x]):
+- RF-GIA-01  Registro con nombre, correo, contraseña y aceptación de datos
+- RF-GIA-02  Inicio de sesión solo con correo y contraseña (parcial)
+- RF-GIA-04  Sesión persistente y cierre de sesión
+- RF-GE-03   Estados del evento (calculados en la base de datos)
+- RF-EU-01   Explorar con filtro por categoría (parcial, sin personalización)
+- RNF-SP-01  Control de accesos con RLS
+
+====================================================================
+1. IDENTIDAD Y ACCESO
+====================================================================
+[ ] RF-GIA-02  Inicio de sesión con Google.
+[ ] RF-GIA-02  Inicio de sesión con Apple (obligatorio en App Store si hay login externo).
+[~] RF-GIA-02  Bloqueo tras intentos fallidos: hecho dentro de la app (5 intentos, 5
+               minutos, en memoria). Falta el bloqueo del lado del servidor (límites
+               de Supabase, CAPTCHA o hook de autenticación en planes que lo permiten).
+[x] RF-GIA-03  Recuperación de contraseña por correo, con código de 6 dígitos, reglas de
+               complejidad y mensajes de éxito o error. Requiere cambiar la plantilla
+               "Reset Password" de Supabase para que incluya {{ .Token }} (ver README).
+[x] RF-GIA-05  Pantalla de bienvenida (onboarding) en el primer arranque; usa la
+               columna onboarding_completo.
+[x] RF-GIA-01  Confirmación del correo con código de 6 dígitos (pantalla propia, con
+               reenvío). Requiere cambiar la plantilla "Confirm signup" de Supabase
+               para que incluya {{ .Token }} (ver README) y activar "Confirm email".
+
+====================================================================
+2. PERFIL DE USUARIO
+====================================================================
+[x] RF-PU-01   Edición de datos personales (nombre, teléfono de contacto y ciudad).
+[x] RF-PU-02   Cambio de correo (con confirmación) y de contraseña, pidiendo la
+               contraseña actual.
+[x] RF-PU-03   Elegir categorías de interés (pantalla "Mis intereses" y paso del
+               onboarding).
+[~] RF-PU-03   Gestionar consentimientos: hecho el tratamiento de datos (solo lectura),
+               los avisos dentro de la app y la personalización. Falta el permiso de
+               notificaciones del sistema, que llega con las notificaciones push
+               (RF-EU-07).
+[x] RF-PU-04   Selección de ciudad de interés, manual o con la ubicación del teléfono.
+               El encabezado de Explorar muestra la ciudad del perfil y se puede tocar
+               para cambiarla.
+[x] RF-EU-01   Explorar se personaliza según las categorías y la ciudad del perfil.
+
+====================================================================
+3. GESTIÓN DE EVENTOS
+====================================================================
+[x] RF-GE-01   Vista de detalle del evento (nombre, imagen, descripción, fecha, hora,
+               lugar, categoría, precio, edad mínima, estado, acciones rápidas).
+               FilaEvento tiene onTap pero Explorar no le pasa ninguna acción.
+[ ] RF-GE-02   Abrir el mapa o la ruta al lugar del evento (agregar url_launcher o
+               un paquete de mapas, y permisos de ubicación).
+[ ] RF-GE-04   Ingesta de eventos desde fuentes externas / backoffice (fuera del
+               alcance de la app móvil, pero falta en la arquitectura). Tampoco existe
+               la tabla FuenteEvento del diagrama de clases.
+[ ] CU-13      Sincronización del catálogo (proceso de backend).
+
+====================================================================
+4. EXPERIENCIA DE USUARIO
+====================================================================
+[x] RF-EU-02   Búsqueda por texto libre (nombre, lugar o categoría) con resultados en
+               tiempo real.
+[x] RF-EU-03   Filtros combinables por categoría, fecha, ubicación y rango de precio.
+               (Búsqueda y filtros viven en Explorar; no hay pantalla Buscar aparte.)
+[x] RF-EU-04   Guardar y quitar favoritos desde la tarjeta y el detalle (tabla
+               favoritos ya creada con RLS).
+[x] RF-EU-05   Pantalla de Favoritos (hoy es un marcador de posición), con eventos
+               pasados y futuros y orden por fecha.
+[x] RF-EU-06   Pantalla de Próximos (hoy es un marcador de posición), vista tipo agenda
+               de los favoritos que están por ocurrir.
+[~] RF-EU-07   Notificaciones:
+               [x] Bandeja que lee la tabla notificaciones (campana en Explorar con
+                   contador, marcar como leído, abrir el evento).
+               [ ] Notificaciones push (requiere Firebase y APNs; hoy los avisos solo
+                   se ven dentro de la app).
+               [x] Aviso de "inicio próximo" (24 h antes). Se crea al abrir la app o la
+                   bandeja; para que llegue sin abrir la app hace falta un proceso
+                   programado (pg_cron o Edge Function) junto con las push.
+               [x] Activar o desactivar desde "Privacidad y avisos"; el trigger y la
+                   función de inicio próximo lo respetan.
+
+====================================================================
+5. CUMPLIMIENTO Y GOBIERNO DE DATOS
+====================================================================
+[~] RF-CGD-01  Canal para solicitar acceso, actualización, corrección o eliminación de
+               datos personales, con tiempo de respuesta definido (CU-21). Hecho en la
+               app ("Mis derechos") con fecha límite. Falta definir quién atiende las
+               solicitudes: hoy se responden editando la tabla solicitudes_datos en el
+               panel de Supabase; no hay panel de administración.
+[ ] RF-CGD-02  Gestión de bases de datos conforme a la normativa (verificar obligación
+               de inscripción según volumen).
+[~] Marco legal  Política de tratamiento de datos enlazada desde el registro y desde
+               "Privacidad y avisos". El texto es un BORRADOR (lib/core/legal.dart):
+               falta que el responsable lo revise, complete el correo de contacto y
+               agregue el aviso de privacidad si se requiere.
+[ ] Marco legal  Términos de uso y edad mínima de registro (Ley 1098 de 2006).
+[ ] Marco legal  Acuerdos o licencias para imágenes y descripciones de fuentes externas
+               (Ley 23 de 1982 y Decisión Andina 351).
+
+====================================================================
+6. REQUERIMIENTOS NO FUNCIONALES
+====================================================================
+Seguridad y privacidad
+[ ] RNF-SP-02  Cifrado de PII y tokens en base de datos (TLS ya lo da Supabase).
+[ ] RNF-SP-03  Sin secretos en el código: la URL y la clave publishable de Supabase
+               están escritas en lib/core/config.dart; pasarlas por variables de
+               compilación (--dart-define).
+[ ] RNF-SP-04  Auditoría: log de inicios de sesión y de cambios de preferencias y ciudad.
+[ ] RNF-SP-06  Protocolo de gestión de incidentes (detección, contención, comunicación).
+
+Performance y disponibilidad
+[ ] RNF-PD-02  Verificar p95 < 500 ms en catálogo y búsqueda (no hay mediciones; la app
+               descarga todos los eventos y filtra en el cliente).
+[ ] RNF-PD-03  Modo offline: caché local de eventos y favoritos con reconciliación al
+               recuperar conexión (hoy sin internet solo se muestra un error).
+[ ] RNF-PD-05  Sincronización periódica del catálogo para no mostrar eventos vencidos.
+
+Interoperabilidad, calidad y experiencia
+[ ] RNF-IC-01  Probar en dispositivos Android e iOS modernos.
+[ ] RNF-IC-02  API REST/GraphQL estandarizada para ingesta de eventos externos.
+[ ] RNF-IC-03  Monitoreo de errores de login y de sincronización (no hay Sentry ni similar).
+[ ] RNF-IC-04  Pruebas automatizadas: hoy solo hay 3 pruebas unitarias de formato.
+               Faltan pruebas de pantallas, navegación y consultas.
+[ ] RNF-IC-05  Revisar accesibilidad: contraste y tamaños de texto.
+[ ] RNF-IC-06  Localización ES-CO con flutter_localizations (el formato de fecha y hora
+               está hecho a mano).
+[ ] RNF-IC-07  Despliegue continuo (no existe .github/ ni CI/CD).
+[ ] RNF-IC-08  Componentes adaptados al lenguaje de diseño de iOS (hoy es un tema
+               Material único).
+
+====================================================================
+7. PROBLEMAS TÉCNICOS A CORREGIR
+====================================================================
+[x] Falta el permiso INTERNET en android/app/src/main/AndroidManifest.xml. Solo está
+    en los manifiestos debug y profile, por lo que la versión de lanzamiento de Android
+    no se conectará a Supabase. (Agregado en el paso 3.)
+[ ] Pasar la configuración de Supabase a variables de compilación (ver RNF-SP-03).
+[ ] El README indica "Docente: Andres Felipe Vallejo Sastoque" pero el documento técnico
+    indica como ingeniera a Eliana Marcela Paez Perdomo. Unificar.
+
+====================================================================
+8. ORDEN SUGERIDO
+====================================================================
+1. Detalle del evento, favoritos y próximos (la base de datos ya está lista).
+2. Búsqueda y filtros combinables; Explorar personalizado por perfil.
+3. [hecho] Recuperar contraseña, onboarding, edición de perfil, categorías y ciudad.
+4. [parcial] Hecho: bandeja de avisos, inicio próximo, derechos del titular, política
+   de datos, confirmación de correo y bloqueo en la app. Falta (paso 4b): Google y Apple
+   (necesitan cuentas y credenciales) y notificaciones push (necesitan Firebase).
+5. Offline, pruebas, localización, monitoreo y CI/CD.

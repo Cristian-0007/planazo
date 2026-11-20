@@ -2,9 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/tema.dart';
+import '../modelos/perfil.dart';
+import '../servicios/perfil_servicio.dart';
+import '../widgets/fila_ajuste.dart';
+import 'editar_perfil_pantalla.dart';
+import 'intereses_pantalla.dart';
+import 'privacidad_pantalla.dart';
+import 'seguridad_pantalla.dart';
 
-/// Perfil básico: lee el perfil que el trigger de la base de datos crea al
-/// registrarse, y permite cerrar sesión.
+/// Perfil: resumen de la cuenta y acceso a editar datos, intereses,
+/// privacidad, seguridad y cierre de sesión.
 class PerfilPantalla extends StatefulWidget {
   const PerfilPantalla({super.key});
 
@@ -13,23 +20,24 @@ class PerfilPantalla extends StatefulWidget {
 }
 
 class _PerfilPantallaState extends State<PerfilPantalla> {
-  late final Future<Map<String, dynamic>?> _perfil;
+  final _servicio = PerfilServicio();
+  late Future<Perfil?> _perfil;
 
   @override
   void initState() {
     super.initState();
-    _perfil = _cargarPerfil();
+    _perfil = _servicio.cargar();
   }
 
-  Future<Map<String, dynamic>?> _cargarPerfil() async {
-    final db = Supabase.instance.client;
-    final id = db.auth.currentUser?.id;
-    if (id == null) return null;
-    return await db
-        .from('perfiles')
-        .select('nombre, acepta_terminos')
-        .eq('id', id)
-        .maybeSingle();
+  /// Abre una pantalla del perfil y, al volver, lee los datos otra vez.
+  Future<void> _abrir(Widget pantalla) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => pantalla),
+    );
+    if (!mounted) return;
+    setState(() {
+      _perfil = _servicio.cargar();
+    });
   }
 
   Future<void> _cerrarSesion() async {
@@ -53,15 +61,15 @@ class _PerfilPantallaState extends State<PerfilPantalla> {
         children: [
           Text('Perfil', style: Tipografia.display(31, espaciado: -0.6, altura: 1.05)),
           const SizedBox(height: 24),
-          FutureBuilder<Map<String, dynamic>?>(
+          FutureBuilder<Perfil?>(
             future: _perfil,
             builder: (context, snap) {
-              final nombre = (snap.data?['nombre'] as String?) ?? '';
+              final nombre = snap.data?.nombre ?? '';
+              final ciudad = snap.data?.ciudadNombre;
               final base = nombre.isNotEmpty ? nombre : correo;
               final inicial = base.isEmpty
                   ? '?'
                   : String.fromCharCode(base.runes.first).toUpperCase();
-              final acepto = snap.data?['acepta_terminos'] == true;
 
               return Row(
                 children: [
@@ -94,11 +102,25 @@ class _PerfilPantallaState extends State<PerfilPantalla> {
                           overflow: TextOverflow.ellipsis,
                           style: Tipografia.ui(14, color: Paleta.papelMut),
                         ),
-                        if (acepto) ...[
+                        if (ciudad != null) ...[
                           const SizedBox(height: 6),
-                          Text(
-                            'Tratamiento de datos: aceptado',
-                            style: Tipografia.ui(13, peso: FontWeight.w600, color: Paleta.menta),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 15,
+                                color: Paleta.amarillo,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                ciudad,
+                                style: Tipografia.ui(
+                                  13,
+                                  peso: FontWeight.w600,
+                                  color: Paleta.papelMut,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ],
@@ -108,7 +130,35 @@ class _PerfilPantallaState extends State<PerfilPantalla> {
               );
             },
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
+          FilaAjuste(
+            icono: Icons.person_outline,
+            titulo: 'Datos personales',
+            subtitulo: 'Nombre, teléfono y ciudad',
+            alPresionar: () => _abrir(const EditarPerfilPantalla()),
+          ),
+          const SizedBox(height: 10),
+          FilaAjuste(
+            icono: Icons.local_activity_outlined,
+            titulo: 'Mis intereses',
+            subtitulo: 'Categorías para personalizar Explorar',
+            alPresionar: () => _abrir(const InteresesPantalla()),
+          ),
+          const SizedBox(height: 10),
+          FilaAjuste(
+            icono: Icons.shield_outlined,
+            titulo: 'Privacidad y avisos',
+            subtitulo: 'Tus datos, avisos y personalización',
+            alPresionar: () => _abrir(const PrivacidadPantalla()),
+          ),
+          const SizedBox(height: 10),
+          FilaAjuste(
+            icono: Icons.lock_outline,
+            titulo: 'Cuenta y seguridad',
+            subtitulo: 'Cambiar correo y contraseña',
+            alPresionar: () => _abrir(const SeguridadPantalla()),
+          ),
+          const SizedBox(height: 28),
           OutlinedButton.icon(
             onPressed: _cerrarSesion,
             icon: const Icon(Icons.logout, size: 20),

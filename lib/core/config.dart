@@ -7,6 +7,6 @@
 class Config {
   const Config._();
 
-  static const supabaseUrl = 'https://zsxnwwdkerbyfsvcgqwa.supabase.co';
-  static const supabaseClave = 'sb_publishable_scptyh-NStjZsa-vX4AJ5Q_RCB4pB4N';
+  static const supabaseUrl = 'https://witgyjdlxeuabgonjbst.supabase.co';
+  static const supabaseClave = 'sb_publishable_NuFPXbaT9sYxaU6aw6PubQ_B8rsUnzd';
 }

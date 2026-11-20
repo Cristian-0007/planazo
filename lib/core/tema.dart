@@ -175,6 +175,23 @@ ThemeData construirTema() {
       checkColor: const WidgetStatePropertyAll(Paleta.noche),
       side: const BorderSide(color: Paleta.papelMut, width: 1.5),
     ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((estados) {
+        return estados.contains(WidgetState.selected)
+            ? Paleta.noche
+            : Paleta.papelMut;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((estados) {
+        return estados.contains(WidgetState.selected)
+            ? Paleta.amarillo
+            : Paleta.noche3;
+      }),
+      trackOutlineColor: WidgetStateProperty.resolveWith((estados) {
+        return estados.contains(WidgetState.selected)
+            ? Paleta.amarillo
+            : Paleta.borde;
+      }),
+    ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: Paleta.noche3,
       contentTextStyle: Tipografia.ui(14),

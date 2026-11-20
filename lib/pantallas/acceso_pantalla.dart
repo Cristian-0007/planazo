@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/errores_auth.dart';
+import '../core/legal.dart';
+import '../core/limite_intentos.dart';
 import '../core/tema.dart';
+import '../core/validaciones.dart';
+import '../widgets/reglas_clave.dart';
 import '../widgets/sello_fecha.dart';
+import 'confirmar_correo_pantalla.dart';
+import 'politica_datos_pantalla.dart';
+import 'recuperar_clave_pantalla.dart';
+import 'terminos_pantalla.dart';
 
 /// Registro e inicio de sesión con correo y contraseña.
 class AccesoPantalla extends StatefulWidget {
@@ -25,6 +34,10 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
   String? _mensaje;
   bool _mensajeEsError = true;
 
+  /// True cuando el inicio de sesión falló porque el correo no está
+  /// confirmado: se ofrece el botón para confirmarlo.
+  bool _sinConfirmar = false;
+
   @override
   void dispose() {
     _nombre.dispose();
@@ -37,6 +50,7 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
     setState(() {
       _registro = registro;
       _mensaje = null;
+      _sinConfirmar = false;
     });
   }
 
@@ -46,18 +60,34 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
       setState(() {
         _mensajeEsError = true;
         _mensaje =
-            'Para crear tu cuenta debes aceptar el tratamiento de tus datos personales.';
+            'Para crear tu cuenta debes confirmar que eres mayor de ${DatosLegales.edadMinima} años y aceptar los términos de uso y el tratamiento de tus datos personales.';
       });
       return;
+    }
+
+    final correo = _correo.text.trim();
+
+    // Tras varios intentos fallidos se pide esperar (RF-GIA-02).
+    if (!_registro) {
+      final espera = LimiteIntentos.global.segundosRestantes(correo);
+      if (espera > 0) {
+        setState(() {
+          _mensajeEsError = true;
+          _sinConfirmar = false;
+          _mensaje =
+              'Demasiados intentos fallidos. Espera ${textoEspera(espera)} o recupera tu contraseña.';
+        });
+        return;
+      }
     }
 
     setState(() {
       _cargando = true;
       _mensaje = null;
+      _sinConfirmar = false;
     });
 
     final auth = Supabase.instance.client.auth;
-    final correo = _correo.text.trim();
 
     try {
       if (_registro) {
@@ -67,26 +97,45 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
           data: {
             'nombre': _nombre.text.trim(),
             'acepta_terminos': true,
+            'mayor_de_edad': true,
           },
         );
-        // Si el proyecto exige confirmar el correo, no hay sesión todavía.
+        // Si el proyecto exige confirmar el correo, no hay sesión todavía:
+        // se pide el código que llegó al correo.
         if (r.session == null && mounted) {
           setState(() {
             _registro = false;
-            _mensajeEsError = false;
-            _mensaje =
-                'Te enviamos un correo para confirmar tu cuenta. Confírmalo y luego inicia sesión.';
           });
+          await Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => ConfirmarCorreoPantalla(correo: correo),
+            ),
+          );
         }
       } else {
         await auth.signInWithPassword(email: correo, password: _clave.text);
+        LimiteIntentos.global.limpiar(correo);
       }
       // Al iniciar sesión, PuertaSesion cambia de pantalla sola.
     } on AuthException catch (e) {
-      if (mounted) {
+      if (!_registro && e.code == 'invalid_credentials') {
+        final bloqueado = LimiteIntentos.global.registrarFallo(correo);
+        if (mounted) {
+          final quedan = LimiteIntentos.global.intentosRestantes(correo);
+          setState(() {
+            _mensajeEsError = true;
+            _mensaje = bloqueado
+                ? 'Demasiados intentos fallidos. Espera ${textoEspera(LimiteIntentos.global.segundosRestantes(correo))} o recupera tu contraseña.'
+                : (quedan <= 2
+                    ? '${mensajeAuth(e)} Te quedan $quedan ${quedan == 1 ? 'intento' : 'intentos'}.'
+                    : mensajeAuth(e));
+          });
+        }
+      } else if (mounted) {
         setState(() {
           _mensajeEsError = true;
-          _mensaje = _traducir(e);
+          _sinConfirmar = !_registro && e.code == 'email_not_confirmed';
+          _mensaje = mensajeAuth(e);
         });
       }
     } catch (_) {
@@ -106,21 +155,35 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
     }
   }
 
-  String _traducir(AuthException e) {
-    return switch (e.code) {
-      'invalid_credentials' => 'Correo o contraseña incorrectos.',
-      'user_already_exists' ||
-      'email_exists' =>
-        'Ya existe una cuenta con ese correo. Prueba iniciando sesión.',
-      'email_not_confirmed' =>
-        'Debes confirmar tu correo antes de iniciar sesión.',
-      'weak_password' =>
-        'La contraseña es muy débil. Usa al menos 6 caracteres.',
-      'over_request_rate_limit' ||
-      'over_email_send_rate_limit' =>
-        'Hiciste demasiados intentos. Espera un momento e inténtalo de nuevo.',
-      _ => 'No pudimos completar la acción: ${e.message}',
-    };
+  void _confirmarCorreo() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ConfirmarCorreoPantalla(
+          correo: _correo.text.trim(),
+          enviarAlAbrir: true,
+        ),
+      ),
+    );
+  }
+
+  void _abrirPolitica() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const PoliticaDatosPantalla()),
+    );
+  }
+
+  void _abrirTerminos() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const TerminosPantalla()),
+    );
+  }
+
+  void _olvideClave() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => RecuperarClavePantalla(correoInicial: _correo.text.trim()),
+      ),
+    );
   }
 
   @override
@@ -163,9 +226,7 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
                           etiqueta: 'Nombre',
                           icono: Icons.person_outline,
                         ),
-                        validator: (v) => (v == null || v.trim().length < 2)
-                            ? 'Escribe tu nombre.'
-                            : null,
+                        validator: validarNombre,
                       ),
                       const SizedBox(height: 14),
                     ],
@@ -178,12 +239,7 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
                         etiqueta: 'Correo electrónico',
                         icono: Icons.mail_outline,
                       ),
-                      validator: (v) {
-                        final t = v?.trim() ?? '';
-                        return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t)
-                            ? null
-                            : 'Escribe un correo válido.';
-                      },
+                      validator: validarCorreo,
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -211,10 +267,25 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
                           },
                         ),
                       ),
-                      validator: (v) => (v == null || v.length < 6)
-                          ? 'Usa al menos 6 caracteres.'
-                          : null,
+                      // Al registrarse se exigen las reglas de seguridad; al
+                      // entrar solo que no esté vacía (cuentas anteriores).
+                      validator: (v) => _registro
+                          ? validarClaveNueva(v)
+                          : ((v == null || v.isEmpty)
+                              ? 'Escribe tu contraseña.'
+                              : null),
                     ),
+                    if (_registro) ...[
+                      const SizedBox(height: 10),
+                      ReglasClaveWidget(controlador: _clave),
+                    ] else
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _cargando ? null : _olvideClave,
+                          child: const Text('¿Olvidaste tu contraseña?'),
+                        ),
+                      ),
                     if (_registro) ...[
                       const SizedBox(height: 8),
                       CheckboxListTile(
@@ -229,8 +300,23 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
                         contentPadding: EdgeInsets.zero,
                         controlAffinity: ListTileControlAffinity.leading,
                         title: Text(
-                          'Acepto el tratamiento de mis datos personales (Ley 1581 de 2012).',
+                          'Soy mayor de ${DatosLegales.edadMinima} años, acepto los términos de uso y el tratamiento de mis datos personales (Ley 1581 de 2012).',
                           style: Tipografia.ui(13, color: Paleta.papelMut, altura: 1.4),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          children: [
+                            TextButton(
+                              onPressed: _abrirTerminos,
+                              child: const Text('Leer los términos de uso'),
+                            ),
+                            TextButton(
+                              onPressed: _abrirPolitica,
+                              child: const Text('Leer la política de datos'),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -249,6 +335,14 @@ class _AccesoPantallaState extends State<AccesoPantalla> {
                         ),
                       ),
                     ],
+                    if (_sinConfirmar)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: _cargando ? null : _confirmarCorreo,
+                          child: const Text('Confirmar mi correo con un código'),
+                        ),
+                      ),
                     const SizedBox(height: 22),
                     FilledButton(
                       onPressed: _cargando ? null : _enviar,
